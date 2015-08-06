@@ -1,0 +1,131 @@
+# How to Create a Host Aggregates
+#
+=========================================================================
+How to create and configure Host Aggregates in your Metacloud environment
+=========================================================================
+
+Host aggregates can be used to sub-divide an availability zone in to multiple pieces. Then 
+you can, thru the use of flavors, control who runs within a particular aggregate.  The reasons
+you may want to do this maybe you need to seperate physically two groups, or you may have
+a faster or slower set of hypervisor nodes you would like to pool together so you could
+control where VM's actually run. I am sure there are other use cases for the feature as 
+well, below we will describe how to setup aggregates. 
+
+First you must be the Admin, and in the Admin project in order to run the commands to 
+create an aggregate.
+
+The process consists of the follow steps:
+
+1 - create an aggregate name
+2 - create the aggregate metadata
+3 - create the aggregate host pool
+4 - create a platform flavor that is only tied to the host pool
+
+Below is an example of how to do this, as well is how to create a flavor that will be setup only
+to run in one of the Aggregates.  We have already created Aggregate 3, so this example we will 
+create Aggregate #2 and Aggregate #1, then create a flavor to run in Aggregate #2 only. 
+
+Now lets create the first aggregate.
+
+$nova aggregate-create AGGREGATE_1
+
+Aggregate 4 has been successfully created.
++----+-------------+-------------------+-------+----------+
+| Id | Name        | Availability Zone | Hosts | Metadata |
++----+-------------+-------------------+-------+----------+
+| 4  | AGGREGATE_1 | None              | []    | {}       |
++----+-------------+-------------------+-------+----------+
+
+$ nova aggregate-set-metadata AGGREGATE_1 host=mhv1
+Aggregate 4 has been successfully updated.
++----+-------------+-------------------+-------+--------------------+
+| Id | Name        | Availability Zone | Hosts | Metadata           |
++----+-------------+-------------------+-------+--------------------+
+| 4  | AGGREGATE_1 | None              | []    | {u'host': u'mhv1'} |
++----+-------------+-------------------+-------+--------------------+
+
+$ nova aggregate-add-host AGGREGATE_1 mhv1.demo1.mc.metacloud.in
+Aggregate 4 has been successfully updated.
++----+-------------+-------------------+---------------------------------+--------------------+
+| Id | Name        | Availability Zone | Hosts                           | Metadata           |
++----+-------------+-------------------+---------------------------------+--------------------+
+| 4  | AGGREGATE_1 | None              | [u'mhv1.demo1.mc.metacloud.in'] | {u'host': u'mhv1'} |
++----+-------------+-------------------+---------------------------------+--------------------+
+$ 
+
+Now lets create the second aggregate.
+
+$ nova aggregate-create AGGREGATE_2
++----+-------------+-------------------+-------+----------+
+| Id | Name        | Availability Zone | Hosts | Metadata |
++----+-------------+-------------------+-------+----------+
+| 7  | AGGREGATE_2 | None              | []    | {}       |
++----+-------------+-------------------+-------+----------+
+
+$ nova aggregate-set-metadata AGGREGATE_2 host=mhv2
+Aggregate 7 has been successfully updated.
++----+-------------+-------------------+-------+--------------------+
+| Id | Name        | Availability Zone | Hosts | Metadata           |
++----+-------------+-------------------+-------+--------------------+
+| 7  | AGGREGATE_2 | None              | []    | {u'host': u'mhv2'} |
++----+-------------+-------------------+-------+--------------------+
+
+$ nova aggregate-add-host AGGREGATE_2 mhv2.demo1.mc.metacloud.in
+Aggregate 7 has been successfully updated.
++----+-------------+-------------------+---------------------------------+--------------------+
+| Id | Name        | Availability Zone | Hosts                           | Metadata           |
++----+-------------+-------------------+---------------------------------+--------------------+
+| 7  | AGGREGATE_2 | None              | [u'mhv2.demo1.mc.metacloud.in'] | {u'host': u'mhv2'} |
++----+-------------+-------------------+---------------------------------+--------------------+
+
+$ nova aggregate-list
++----+-------------+-------------------+
+| Id | Name        | Availability Zone |
++----+-------------+-------------------+
+| 1  | AGGREGATE_3 | None              |
+| 4  | AGGREGATE_1 | None              |
+| 7  | AGGREGATE_2 | None              |
++----+-------------+-------------------+
+
+$ nova hypervisor-list
++----+----------------------------+
+| ID | Hypervisor hostname        |
++----+----------------------------+
+| 1  | mhv1.demo1.mc.metacloud.in |
+| 4  | mhv2.demo1.mc.metacloud.in |
+| 7  | mhv3.demo1.mc.metacloud.in |
++----+----------------------------+
+
+Next we will create a flavor that will only run in the Aggregate_2.  The steps to do this 
+are below: 
+
+1. Create a Flavor called mhv2
+2. Set the metadata for the flavor to only run in aggregage_2
+3. List out the flavors, showing the extra specs for the key pair value.
+
+$ nova flavor-create --swap 0 mhv2 30 1024 0 2
++----+------+-----------+------+-----------+------+-------+-------------+-----------+
+| ID | Name | Memory_MB | Disk | Ephemeral | Swap | VCPUs | RXTX_Factor | Is_Public |
++----+------+-----------+------+-----------+------+-------+-------------+-----------+
+| 30 | mhv2 | 1024      | 0    | 0         |      | 2     | 1.0         | True      |
++----+------+-----------+------+-----------+------+-------+-------------+-----------+
+
+$ nova flavor-key mhv2 set host=mhv2
+$ nova flavor-list --extra-specs --all
++--------------------------------------+-----------------+-----------+------+-----------+------+-------+-------------+-----------+-----------------------------+
+| ID                                   | Name            | Memory_MB | Disk | Ephemeral | Swap | VCPUs | RXTX_Factor | Is_Public | extra_specs                 |
++--------------------------------------+-----------------+-----------+------+-----------+------+-------+-------------+-----------+-----------------------------+
+| 1                                    | m1.medium       | 4096      | 40   | 0         |      | 2     | 1.0         | True      | {}                          |
+| 2                                    | m1.tiny         | 512       | 0    | 0         |      | 1     | 1.0         | True      | {}                          |
+| 22                                   | mhv1.only.small | 2         | 0    | 0         |      | 1     | 1.0         | True      | {u'host': u'mhv1'}          |
+| 3                                    | m1.large        | 8192      | 80   | 0         |      | 4     | 1.0         | True      | {}                          |
+| 30                                   | mhv2            | 1024      | 0    | 0         |      | 2     | 1.0         | True      | {u'host': u'mhv2'}          |
+| 4                                    | m1.xlarge       | 16384     | 160  | 0         |      | 8     | 1.0         | True      | {}                          |
+| 5                                    | m1.small        | 2048      | 20   | 0         |      | 1     | 1.0         | True      | {}                          |
+| 77                                   | win7.Desktop    | 4096      | 80   | 0         |      | 2     | 1.0         | True      | {u'topology:sockets': u'1'} |
+| 9                                    | m1.xxxlarge     | 65536     | 480  | 0         |      | 32    | 1.0         | False     | {}                          |
+| 9e82dabd-7b64-4078-b90e-9fbc1610d822 | only-mhv3       | 1024      | 20   | 0         |      | 2     | 1.0         | False     | {u'host': u'mhv3'}          |
+| a78abf6a-110a-420e-8ea0-59be145759a9 | m1.xxlarge      | 32768     | 240  | 0         |      | 16    | 1.0         | True      | {}                          |
+| d195b2f8-3e6c-4f96-b3dc-22bfd6aacb46 | vlb-5Groot      | 1024      | 5    | 0         |      | 1     | 1.0         | True      | {}                          |
++--------------------------------------+-----------------+-----------+------+-----------+------+-------+-------------+-----------+-----------------------------+
+$
